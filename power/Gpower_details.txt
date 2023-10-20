@@ -1,0 +1,26 @@
+[17] -- Thursday, March 24, 2022 -- 15:13:33
+t tests - Correlation: Point biserial model
+Analysis:	Sensitivity: Compute required effect size 
+Input:	Tail(s)	=	Two
+	α err prob	=	0.05
+	Power (1-β err prob)	=	0.80
+	Total sample size	=	20000
+Output:	Noncentrality parameter δ	=	2.8017163
+	Critical t	=	1.9600826
+	Df	=	19998
+	Effect size |ρ|	=	0.0198072
+
+[16] -- Thursday, March 24, 2022 -- 15:13:00
+F tests - Linear multiple regression: Fixed model, R² increase
+Analysis:	Sensitivity: Compute required effect size 
+Input:	α err prob	=	0.05
+	Power (1-β err prob)	=	0.80
+	Total sample size	=	20000
+	Number of tested predictors	=	2
+	Total number of predictors	=	3
+Output:	Noncentrality parameter λ	=	9.6361325
+	Critical F	=	2.9961811
+	Numerator df	=	2
+	Denominator df	=	19996
+	Effect size f²	=	0.0004818066
+

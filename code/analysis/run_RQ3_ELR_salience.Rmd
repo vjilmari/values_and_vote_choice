@@ -1,0 +1,542 @@
+---
+title: "RQ3. Economic Left-Right Saliency Moderation"
+output: 
+  html_document: 
+    toc: yes
+    keep_md: yes
+date: '`r Sys.Date()`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+RQ3. If, as expected (H2), some personal values are associated with the Economic Left-Right position of the party for which one has voted, are those associations stronger if this dimension is salient in the party’s public stance (i.e., is there a boundary condition to these associations, such that the ideology needs to be salient in order for the associations to exist)?
+H5. We expect the associations between personal values and Economic Left-Right to be stronger if this dimension is salient in the party’s public stance.
+
+H2 confirmed association for universalism and power values.
+
+
+# Preparations
+
+## Packages
+
+```{r}
+
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(r2mlm)
+library(rio)
+library(dplyr)
+library(vjihelpers)
+library(psych)
+library(tibble)
+
+```
+
+## Functions
+
+```{r}
+
+source("../custom_functions.R")
+```
+
+## Data
+
+```{r}
+fdat<-import("../../data/processed/fdat.xlsx")
+```
+
+## Variables
+
+```{r}
+
+value.vars<-
+  c("con","tra","ben","uni","sdi",
+        "sti","hed","ach","pow","sec")
+
+value.vars.c<-paste0(value.vars,".c")
+
+DV.vars<-names(fdat)[which(names(fdat)=="lrgen.z"):
+                       which(names(fdat)=="corrupt_salience.z")]
+
+```
+
+## Data filtering and centering predictors
+
+```{r}
+
+temp.fdat<- fdat %>% 
+    dplyr::select(all_of(value.vars),
+                  all_of(value.vars.c),
+                  "lrecon.z",
+                  "lrecon_salience.z",
+                  "gndr.c",
+                  "age10.c",
+                  "cntry",
+                  "anweight") %>%
+    na.omit()
+
+temp.fdat<-
+    group_mean_center(data=temp.fdat,group.var = "cntry",
+                      vars = c(value.vars,
+                               value.vars.c,
+                               "lrecon_salience.z",
+                               "gndr.c",
+                               "age10.c"))
+```
+
+# Analysis
+
+## uni
+
+### fixed effect model
+
+```{r}
+mod2.uni<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+uni.c.gmc+(1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod2.uni)
+```
+
+### salience main effect
+
+```{r}
+mod3.uni<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+uni.c.gmc+
+                 lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod3.uni)
+```
+
+### salience moderation
+
+```{r}
+mod4.uni<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+uni.c.gmc+
+                 lrecon_salience.z.gmc+
+             uni.c.gmc:lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod4.uni)
+
+emtrends(mod4.uni,
+         var="uni.c.gmc",
+         specs="lrecon_salience.z.gmc",
+         at=list(lrecon_salience.z.gmc=c(-1,0,1)),
+         disable.pbkrtest=T,
+         lmerTest.limit = 25000,
+         infer=c(T,T))
+
+```
+
+### figure data
+
+```{r}
+by=0.05
+
+p.uni<-
+  emmip(mod4.uni,
+        lrecon_salience.z.gmc ~ uni.c.gmc,
+        at=list(lrecon_salience.z.gmc = c(-1,0,1),
+                uni.c.gmc=
+                  seq(from=
+                        round(range(temp.fdat$uni.c.gmc)[1],2),
+                      to=round(range(temp.fdat$uni.c.gmc)[2],
+                               2),by=by)),
+        plotit=F,CIs=TRUE,type="response",
+        disable.pbkrtest=T,lmerTest.limit=30000)
+
+p.uni$lrecon_salience<-p.uni$tvar
+
+levels(p.uni$lrecon_salience)<-
+  c("Low Salience","Average Salience","High Salience")
+
+min.low<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "uni.c.gmc"])
+max.low<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "uni.c.gmc"])
+
+p.uni$filter.low<-
+  ifelse(p.uni$lrecon_salience.z.gmc==(-1) &
+           (p.uni$uni.c.gmc<min.low | 
+              p.uni$uni.c.gmc>max.low),0,1)
+
+table(p.uni$filter.low)
+
+min.mid<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "uni.c.gmc"])
+max.mid<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "uni.c.gmc"])
+
+p.uni$filter.mid<-
+  ifelse(p.uni$lrecon_salience.z.gmc==(0) &
+           (p.uni$uni.c.gmc<min.mid | 
+              p.uni$uni.c.gmc>max.mid),0,1)
+
+table(p.uni$filter.mid)
+
+min.high<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "uni.c.gmc"])
+max.high<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "uni.c.gmc"])
+
+p.uni$filter.high<-
+  ifelse(p.uni$lrecon_salience.z.gmc==(1) &
+           (p.uni$uni.c.gmc<min.high | 
+              p.uni$uni.c.gmc>max.high),0,1)
+
+table(p.uni$filter.high)
+
+export(p.uni,overwrite=T,
+       "../../results/figures/figdata/uni_ELR_salience.xlsx")
+
+```
+
+## pow
+
+### fixed effect model
+
+```{r}
+mod2.pow<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+pow.c.gmc+(1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod2.pow)
+```
+
+### salience main effect
+
+```{r}
+mod3.pow<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+pow.c.gmc+
+                 lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod3.pow)
+```
+
+### salience moderation
+
+```{r}
+mod4.pow<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+pow.c.gmc+
+                 lrecon_salience.z.gmc+
+             pow.c.gmc:lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod4.pow)
+
+emtrends(mod4.pow,
+         var="pow.c.gmc",
+         specs="lrecon_salience.z.gmc",
+         at=list(lrecon_salience.z.gmc=c(-1,0,1)),
+         disable.pbkrtest=T,
+         lmerTest.limit = 25000,
+         infer=c(T,T))
+
+
+```
+
+### figure data
+
+```{r}
+by=0.05
+
+p.pow<-
+  emmip(mod4.pow,
+        lrecon_salience.z.gmc ~ pow.c.gmc,
+        at=list(lrecon_salience.z.gmc = c(-1,0,1),
+                pow.c.gmc=
+                  seq(from=
+                        round(range(temp.fdat$pow.c.gmc)[1],2),
+                      to=round(range(temp.fdat$pow.c.gmc)[2],
+                               2),by=by)),
+        plotit=F,CIs=TRUE,type="response",
+        disable.pbkrtest=T,lmerTest.limit=30000)
+
+p.pow$lrecon_salience<-p.pow$tvar
+
+levels(p.pow$lrecon_salience)<-
+  c("Low Salience","Average Salience","High Salience")
+
+min.low<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "pow.c.gmc"])
+max.low<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "pow.c.gmc"])
+
+p.pow$filter.low<-
+  ifelse(p.pow$lrecon_salience.z.gmc==(-1) &
+           (p.pow$pow.c.gmc<min.low | 
+              p.pow$pow.c.gmc>max.low),0,1)
+
+table(p.pow$filter.low)
+
+min.mid<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "pow.c.gmc"])
+max.mid<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "pow.c.gmc"])
+
+p.pow$filter.mid<-
+  ifelse(p.pow$lrecon_salience.z.gmc==(0) &
+           (p.pow$pow.c.gmc<min.mid | 
+              p.pow$pow.c.gmc>max.mid),0,1)
+
+table(p.pow$filter.mid)
+
+min.high<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "pow.c.gmc"])
+max.high<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "pow.c.gmc"])
+
+p.pow$filter.high<-
+  ifelse(p.pow$lrecon_salience.z.gmc==(1) &
+           (p.pow$pow.c.gmc<min.high | 
+              p.pow$pow.c.gmc>max.high),0,1)
+
+table(p.pow$filter.high)
+
+export(p.pow,overwrite=T,
+       "../../results/figures/figdata/pow_ELR_salience.xlsx")
+
+```
+
+## ben
+
+### fixed effect model
+
+```{r}
+mod2.ben<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ben.c.gmc+(1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod2.ben)
+```
+
+### salience main effect
+
+```{r}
+mod3.ben<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ben.c.gmc+
+                 lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod3.ben)
+```
+
+### salience moderation
+
+```{r}
+mod4.ben<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ben.c.gmc+
+                 lrecon_salience.z.gmc+
+             ben.c.gmc:lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod4.ben)
+
+emtrends(mod4.ben,
+         var="ben.c.gmc",
+         specs="lrecon_salience.z.gmc",
+         at=list(lrecon_salience.z.gmc=c(-1,0,1)),
+         disable.pbkrtest=T,
+         lmerTest.limit = 25000,
+         infer=c(T,T))
+
+```
+
+### figure data
+
+```{r}
+by=0.05
+
+p.ben<-
+  emmip(mod4.ben,
+        lrecon_salience.z.gmc ~ ben.c.gmc,
+        at=list(lrecon_salience.z.gmc = c(-1,0,1),
+                ben.c.gmc=
+                  seq(from=
+                        round(range(temp.fdat$ben.c.gmc)[1],2),
+                      to=round(range(temp.fdat$ben.c.gmc)[2],
+                               2),by=by)),
+        plotit=F,CIs=TRUE,type="response",
+        disable.pbkrtest=T,lmerTest.limit=30000)
+
+p.ben$lrecon_salience<-p.ben$tvar
+
+levels(p.ben$lrecon_salience)<-
+  c("Low Salience","Average Salience","High Salience")
+
+min.low<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "ben.c.gmc"])
+max.low<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "ben.c.gmc"])
+
+p.ben$filter.low<-
+  ifelse(p.ben$lrecon_salience.z.gmc==(-1) &
+           (p.ben$ben.c.gmc<min.low | 
+              p.ben$ben.c.gmc>max.low),0,1)
+
+table(p.ben$filter.low)
+
+min.mid<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "ben.c.gmc"])
+max.mid<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "ben.c.gmc"])
+
+p.ben$filter.mid<-
+  ifelse(p.ben$lrecon_salience.z.gmc==(0) &
+           (p.ben$ben.c.gmc<min.mid | 
+              p.ben$ben.c.gmc>max.mid),0,1)
+
+table(p.ben$filter.mid)
+
+min.high<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "ben.c.gmc"])
+max.high<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "ben.c.gmc"])
+
+p.ben$filter.high<-
+  ifelse(p.ben$lrecon_salience.z.gmc==(1) &
+           (p.ben$ben.c.gmc<min.high | 
+              p.ben$ben.c.gmc>max.high),0,1)
+
+table(p.ben$filter.high)
+
+export(p.ben,overwrite=T,
+       "../../results/figures/figdata/ben_ELR_salience.xlsx")
+
+```
+
+## ach
+
+### fixed effect model
+
+```{r}
+mod2.ach<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ach.c.gmc+(1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod2.ach)
+```
+
+### salience main effect
+
+```{r}
+mod3.ach<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ach.c.gmc+
+                 lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod3.ach)
+```
+
+### salience moderation
+
+```{r}
+mod4.ach<-lmer(lrecon.z~gndr.c.gmc+age10.c.gmc+ach.c.gmc+
+                 lrecon_salience.z.gmc+
+             ach.c.gmc:lrecon_salience.z.gmc+
+             (1|cntry),
+           weights = anweight,data=temp.fdat)
+getFE(mod4.ach)
+
+emtrends(mod4.ach,
+         var="ach.c.gmc",
+         specs="lrecon_salience.z.gmc",
+         at=list(lrecon_salience.z.gmc=c(-1,0,1)),
+         disable.pbkrtest=T,
+         lmerTest.limit = 25000,
+         infer=c(T,T))
+
+```
+
+### figure data
+
+```{r}
+by=0.05
+
+p.ach<-
+  emmip(mod4.ach,
+        lrecon_salience.z.gmc ~ ach.c.gmc,
+        at=list(lrecon_salience.z.gmc = c(-1,0,1),
+                ach.c.gmc=
+                  seq(from=
+                        round(range(temp.fdat$ach.c.gmc)[1],2),
+                      to=round(range(temp.fdat$ach.c.gmc)[2],
+                               2),by=by)),
+        plotit=F,CIs=TRUE,type="response",
+        disable.pbkrtest=T,lmerTest.limit=30000)
+
+p.ach$lrecon_salience<-p.ach$tvar
+
+levels(p.ach$lrecon_salience)<-
+  c("Low Salience","Average Salience","High Salience")
+
+min.low<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "ach.c.gmc"])
+max.low<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc<=(-1),
+                "ach.c.gmc"])
+
+p.ach$filter.low<-
+  ifelse(p.ach$lrecon_salience.z.gmc==(-1) &
+           (p.ach$ach.c.gmc<min.low | 
+              p.ach$ach.c.gmc>max.low),0,1)
+
+table(p.ach$filter.low)
+
+min.mid<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "ach.c.gmc"])
+max.mid<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>(-1) |
+                  temp.fdat$lrecon_salience.z.gmc<(1),
+                "ach.c.gmc"])
+
+p.ach$filter.mid<-
+  ifelse(p.ach$lrecon_salience.z.gmc==(0) &
+           (p.ach$ach.c.gmc<min.mid | 
+              p.ach$ach.c.gmc>max.mid),0,1)
+
+table(p.ach$filter.mid)
+
+min.high<-
+  min(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "ach.c.gmc"])
+max.high<-
+  max(temp.fdat[temp.fdat$lrecon_salience.z.gmc>=(1) ,
+                "ach.c.gmc"])
+
+p.ach$filter.high<-
+  ifelse(p.ach$lrecon_salience.z.gmc==(1) &
+           (p.ach$ach.c.gmc<min.high | 
+              p.ach$ach.c.gmc>max.high),0,1)
+
+table(p.ach$filter.high)
+
+export(p.ach,overwrite=T,
+       "../../results/figures/figdata/ach_ELR_salience.xlsx")
+
+```
+
+# Session info
+
+```{r}
+sinf<-sessionInfo()
+print(sinf,locale=F)
+```

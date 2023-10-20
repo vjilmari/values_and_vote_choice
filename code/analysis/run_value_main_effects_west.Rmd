@@ -1,0 +1,105 @@
+---
+title: "Analysis for values main effects for Western Europe subsample"
+output: 
+  html_document: 
+    toc: yes
+    keep_md: yes
+date: '`r Sys.Date()`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preparations
+
+## Packages
+
+```{r}
+
+library(lme4)
+library(lmerTest)
+#library(emmeans)
+library(r2mlm)
+library(rio)
+library(dplyr)
+library(vjihelpers)
+#library(psych)
+library(tibble)
+```
+
+## Functions
+
+```{r}
+
+source("../custom_functions.R")
+```
+
+## Data
+
+```{r}
+fdat<-import("../../data/processed/fdat.xlsx")
+
+
+fdat$West_vs_post_comm<-
+  case_when(fdat$cntry == "AT" |
+              fdat$cntry == "BE" |
+              fdat$cntry == "CH" |
+              fdat$cntry == "DE" |
+              fdat$cntry == "DK" |
+              fdat$cntry == "ES" |
+              fdat$cntry == "FI" |
+              fdat$cntry == "FR" |
+              fdat$cntry == "GB" |
+              fdat$cntry == "IE" |
+              fdat$cntry == "IL" |
+              fdat$cntry == "NL" |
+              fdat$cntry == "NO" |
+              fdat$cntry == "PT" |
+              fdat$cntry == "SE" ~ -0.5,
+            TRUE~0.5)
+
+table(fdat$West_vs_post_comm,useNA="always")
+
+fdat<-fdat[fdat$West_vs_post_comm==(-0.5),]
+
+```
+
+## Variables
+
+```{r}
+
+value.vars<-
+  c("con","tra","ben","uni","sdi",
+        "sti","hed","ach","pow","sec")
+
+value.vars.c<-paste0(value.vars,".c")
+
+DV.vars<-names(fdat)[which(names(fdat)=="lrgen.z"):
+                       which(names(fdat)=="corrupt_salience.z")]
+
+```
+
+# Analysis call
+
+```{r}
+length(DV.vars)
+
+for (k in 1:length(DV.vars)){
+  DV_by_values_pipe(DV=DV.vars[k],
+                  IV=value.vars,
+                  IV.c=value.vars.c,
+                  data=fdat,
+                  directory="../../results/west")
+  
+}
+
+
+```
+
+# Session info
+
+```{r}
+sinf<-sessionInfo()
+print(sinf,locale=F)
+```

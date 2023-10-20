@@ -1,0 +1,433 @@
+---
+title: "ERQ3. Are personal values associated with not having voted in the previous national elections, despite being eligible to vote?"
+output: 
+  html_document: 
+    toc: yes
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Preparations
+
+## Packages
+
+```{r}
+
+library(lme4)
+library(lmerTest)
+#library(emmeans)
+library(r2mlm)
+library(rio)
+library(dplyr)
+library(vjihelpers)
+#library(psych)
+library(tibble)
+```
+
+## Functions
+
+```{r}
+
+source("../custom_functions.R")
+```
+
+## Data
+
+```{r}
+fdat<-import("../../data/processed/fdat.xlsx")
+```
+
+## Variables
+
+```{r}
+
+value.vars<-
+  c("con","tra","ben","uni","sdi",
+        "sti","hed","ach","pow","sec")
+
+value.vars.c<-paste0(value.vars,".c")
+
+
+table(fdat$vote)
+table(fdat$vote.c)
+
+fdat$vote.DV<-fdat$vote.c+0.5
+table(fdat$vote.DV)
+```
+
+## Data filtering and centering predictors
+
+```{r}
+
+temp.fdat<- fdat %>% 
+    dplyr::select(all_of(value.vars),
+                  all_of(value.vars.c),
+                  "vote.DV",
+                  "gndr.c",
+                  "age10.c",
+                  "cntry",
+                  "anweight") %>%
+    na.omit()
+
+temp.fdat<-
+    group_mean_center(data=temp.fdat,group.var = "cntry",
+                      vars = c(value.vars,
+                               value.vars.c,
+                               "gndr.c",
+                               "age10.c"))
+
+```
+
+# Analysis
+
+## Empty model
+
+```{r}
+mod0<-glmer(vote.DV~(1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod0)
+
+```
+
+## Covariate model
+
+```{r}
+mod1<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+(1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod1)
+```
+
+## All values model
+
+```{r}
+mod.all<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  con.gmc+tra.gmc+ben.gmc+uni.gmc+sdi.gmc+
+                 sti.gmc+hed.gmc+ach.gmc+pow.gmc+sec.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod.all)
+
+export(rownames_to_column(getFE_glmer(mod.all,p.round = 10,round = 10)),
+       "../../results/ERQ3/all_FE.xlsx",overwrite=T)
+```
+
+## con
+
+### fixed effect model
+
+```{r}
+mod2.con<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  con.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.con)
+
+export(rownames_to_column(getFE_glmer(mod2.con,p.round = 10,round = 10)),
+       "../../results/ERQ3/con_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.con<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  con.c.gmc+
+                  (con.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.con)
+
+anova(mod2.con,mod3.con)
+```
+
+
+## tra
+
+### fixed effect model
+
+```{r}
+mod2.tra<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  tra.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.tra)
+
+export(rownames_to_column(getFE_glmer(mod2.tra,p.round = 10,round = 10)),
+       "../../results/ERQ3/tra_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.tra<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  tra.c.gmc+
+                  (tra.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.tra)
+anova(mod2.tra,mod3.tra)
+```
+
+
+
+
+## ben
+
+### fixed effect model
+
+```{r}
+mod2.ben<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  ben.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.ben)
+
+export(rownames_to_column(getFE_glmer(mod2.ben,p.round = 10,round = 10)),
+       "../../results/ERQ3/ben_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.ben<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  ben.c.gmc+
+                  (ben.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.ben)
+anova(mod2.ben,mod3.ben)
+```
+
+## uni
+
+### fixed effect model
+
+```{r}
+mod2.uni<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  uni.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.uni)
+
+export(rownames_to_column(getFE_glmer(mod2.uni,p.round = 10,round = 10)),
+       "../../results/ERQ3/uni_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.uni<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  uni.c.gmc+
+                  (uni.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.uni)
+anova(mod2.uni,mod3.uni)
+```
+
+## sdi
+
+### fixed effect model
+
+```{r}
+mod2.sdi<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sdi.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.sdi)
+
+export(rownames_to_column(getFE_glmer(mod2.sdi,p.round = 10,round = 10)),
+       "../../results/ERQ3/sdi_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.sdi<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sdi.c.gmc+
+                  (sdi.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.sdi)
+anova(mod2.sdi,mod3.sdi)
+```
+
+## sti
+
+### fixed effect model
+
+```{r}
+mod2.sti<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sti.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.sti)
+
+export(rownames_to_column(getFE_glmer(mod2.sti,p.round = 10,round = 10)),
+       "../../results/ERQ3/sti_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.sti<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sti.c.gmc+
+                  (sti.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.sti)
+anova(mod2.sti,mod3.sti)
+```
+
+## hed
+
+### fixed effect model
+
+```{r}
+mod2.hed<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  hed.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.hed)
+
+export(rownames_to_column(getFE_glmer(mod2.hed,p.round = 10,round = 10)),
+       "../../results/ERQ3/hed_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.hed<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  hed.c.gmc+
+                  (hed.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.hed)
+anova(mod2.hed,mod3.hed)
+```
+
+## ach
+
+### fixed effect model
+
+```{r}
+mod2.ach<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  ach.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.ach)
+
+export(rownames_to_column(getFE_glmer(mod2.ach,p.round = 10,round = 10)),
+       "../../results/ERQ3/ach_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.ach<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  ach.c.gmc+
+                  (ach.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.ach)
+anova(mod2.ach,mod3.ach)
+```
+
+## pow
+
+### fixed effect model
+
+```{r}
+mod2.pow<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  pow.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.pow)
+
+export(rownames_to_column(getFE_glmer(mod2.pow,p.round = 10,round = 10)),
+       "../../results/ERQ3/pow_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.pow<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  pow.c.gmc+
+                  (pow.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.pow)
+anova(mod2.pow,mod3.pow)
+```
+
+## sec
+
+### fixed effect model
+
+```{r}
+mod2.sec<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sec.c.gmc+
+                  (1|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"))
+summary(mod2.sec)
+
+export(rownames_to_column(getFE_glmer(mod2.sec,p.round = 10,round = 10)),
+       "../../results/ERQ3/sec_FE.xlsx",overwrite=T)
+```
+
+### random effect model
+
+```{r}
+mod3.sec<-glmer(vote.DV~gndr.c.gmc+age10.c.gmc+
+                  sec.c.gmc+
+                  (sec.c.gmc|cntry),
+           weights = anweight,data=temp.fdat,
+           family = binomial(link="logit"),
+           control = glmerControl(optimizer="bobyqa",
+                               optCtrl=list(maxfun=2e6)))
+summary(mod3.sec)
+anova(mod2.sec,mod3.sec)
+```
+
+# Session info
+
+```{r}
+sinf<-sessionInfo()
+print(sinf,locale=F)
+```
